@@ -1,6 +1,10 @@
 import { useState } from "react";
 
+const BASE_URL = "https://localhost:4000/api"; // ← apna backend URL lagao
+
 export default function App() {
+    const token = new URLSearchParams(window.location.search).get("token");
+
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -19,6 +23,11 @@ export default function App() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError("");
+    if (!token) {
+      setError("Invalid invite link. Token missing from URL.");
+      return;
+    }
+
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match");
       return;
@@ -29,14 +38,36 @@ export default function App() {
     }
     setLoading(true);
     try {
-      await new Promise((r) => setTimeout(r, 1500));
+      // ✅ Direct fetch — NO auth header (public route hai)
+      const res = await fetch(`${BASE_URL}/member/accept-invite`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          token,                        // ✅ URL se liya hua
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          password: formData.password,
+        }),
+      });
+
+      const data = await res.json();
+      console.log("API Response:", data); // debug
+
+      if (!res.ok) {
+        setError(data.message || "Something went wrong");
+        return;
+      }
+
       setSuccess(true);
-    } catch {
-      setError("Something went wrong. Please try again.");
+
+    } catch (err) {
+      console.error("Network error:", err);
+      setError("Network error. Please try again.");
     } finally {
       setLoading(false);
     }
   };
+
 
   if (success) {
     return (
@@ -202,7 +233,7 @@ export default function App() {
                 </svg>
                 Setting up your account...
               </>
-            ) : "Complete Setup"}
+            ) : "Sign Up"}
           </button>
 
           <p className="text-center text-white/30 text-xs pt-1">
